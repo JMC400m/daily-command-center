@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Daily Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:        #f4f3f0;
+    --surface:   #ffffff;
+    --surface2:  #f9f8f6;
+    --border:    rgba(0,0,0,0.08);
+    --border2:   rgba(0,0,0,0.14);
+    --text:      #1a1a1f;
+    --muted:     #8a8a96;
+    --muted2:    #b4b4be;
+    --violet:    #6b5ce7;
+    --violet-lt: #eeecfc;
+    --teal:      #0ea874;
+    --teal-lt:   #e6f7f1;
+    --amber:     #d97706;
+    --amber-lt:  #fef3e2;
+    --blue:      #2563eb;
+    --blue-lt:   #eff4ff;
+    --coral:     #e05252;
+    --coral-lt:  #fef0f0;
+    --slate:     #64748b;
+    --slate-lt:  #f1f5f9;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --r: 12px; --rs: 8px;
+    --sh: 0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04);
+    --sh2: 0 4px 12px rgba(0,0,0,0.08),0 2px 4px rgba(0,0,0,0.04);
+  }
+  body { background:var(--bg); color:var(--text); font-family:var(--sans); font-size:13px; min-height:100vh; -webkit-font-smoothing:antialiased; }
+  .shell { max-width:720px; margin:0 auto; padding:28px 20px 60px; }
+
+  /* ── Setup banner ── */
+  .setup-banner { background:var(--violet-lt); border:1.5px solid rgba(107,92,231,0.25); border-radius:var(--r); padding:22px; margin-bottom:24px; }
+  .setup-banner h2 { font-size:15px; font-weight:600; color:var(--violet); margin-bottom:14px; }
+  .setup-steps { list-style:none; counter-reset:step; }
+  .setup-steps li { counter-increment:step; padding:9px 0 9px 34px; position:relative; font-size:12px; line-height:1.6; color:#3d3580; border-bottom:1px solid rgba(107,92,231,0.1); }
+  .setup-steps li:last-child { border-bottom:none; }
+  .setup-steps li::before { content:counter(step); position:absolute; left:0; top:9px; width:20px; height:20px; background:var(--violet); color:white; border-radius:50%; font-size:10px; font-weight:600; font-family:var(--mono); display:flex; align-items:center; justify-content:center; }
+  .setup-steps a { color:var(--violet); font-weight:500; }
+  .setup-steps code { background:rgba(107,92,231,0.12); border-radius:4px; padding:1px 5px; font-family:var(--mono); font-size:11px; }
+  .setup-form { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .setup-form input { flex:1; min-width:180px; background:white; border:1.5px solid rgba(107,92,231,0.3); border-radius:var(--rs); padding:9px 12px; font-size:12px; font-family:var(--mono); color:var(--text); outline:none; }
+  .setup-form input:focus { border-color:var(--violet); }
+  .setup-form input::placeholder { color:var(--muted2); font-family:var(--sans); }
+  .setup-form button { background:var(--violet); border:none; border-radius:var(--rs); padding:9px 18px; font-size:13px; font-weight:500; color:white; cursor:pointer; font-family:var(--sans); white-space:nowrap; }
+  .setup-form button:hover { opacity:0.85; }
+
+  /* ── Sync bar ── */
+  .sync-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding:9px 14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--rs); box-shadow:var(--sh); }
+  .sync-ind { display:flex; align-items:center; gap:7px; font-size:11px; color:var(--muted); font-family:var(--mono); }
+  .sync-dot { width:7px; height:7px; border-radius:50%; background:var(--muted2); transition:background 0.3s; }
+  .sync-dot.ok      { background:var(--teal); }
+  .sync-dot.working { background:var(--amber); animation:pulse 1s infinite; }
+  .sync-dot.err     { background:var(--coral); }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.35} }
+  .sync-actions { display:flex; gap:12px; }
+  .lnk { font-size:11px; color:var(--violet); cursor:pointer; border:none; background:none; font-family:var(--sans); padding:0; transition:opacity 0.15s; }
+  .lnk:hover { opacity:0.7; }
+  .lnk.m { color:var(--muted); }
+
+  /* ── Header ── */
+  .hdr { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; }
+  .day-lbl { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase; margin-bottom:4px; }
+  .day-ttl { font-size:26px; font-weight:600; color:var(--text); line-height:1; letter-spacing:-0.5px; }
+  .hdr-r { display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+  .wpill { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-family:var(--mono); font-size:11px; font-weight:500; border:1.5px solid; cursor:pointer; }
+  .w-g { background:var(--teal-lt);  border-color:rgba(14,168,116,0.3); color:var(--teal);  }
+  .w-y { background:var(--amber-lt); border-color:rgba(217,119,6,0.3);  color:var(--amber); }
+  .w-r { background:var(--coral-lt); border-color:rgba(224,82,82,0.3);  color:var(--coral); }
+  .wdot { width:6px; height:6px; border-radius:50%; }
+  .w-g .wdot { background:var(--teal); }
+  .w-y .wdot { background:var(--amber); }
+  .w-r .wdot { background:var(--coral); }
+  .cfg-btn { font-size:11px; color:var(--muted); cursor:pointer; border:1px solid var(--border2); background:var(--surface); border-radius:6px; padding:4px 10px; font-family:var(--sans); transition:all 0.15s; }
+  .cfg-btn:hover { border-color:var(--violet); color:var(--violet); }
+
+  /* ── Score row ── */
+  .score-row { display:grid; grid-template-columns:auto 1fr; gap:12px; margin-bottom:20px; }
+  .score-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:18px; display:flex; align-items:center; gap:18px; box-shadow:var(--sh); }
+  .ring-wrap { position:relative; width:72px; height:72px; flex-shrink:0; }
+  .ring-wrap svg { transform:rotate(-90deg); display:block; }
+  .ring-ctr { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .ring-n { font-family:var(--mono); font-size:20px; font-weight:500; line-height:1; }
+  .ring-u { font-size:8px; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; margin-top:2px; }
+  .sc-ttl { font-size:13px; font-weight:600; color:var(--text); margin-bottom:3px; }
+  .sc-sub { font-size:11px; color:var(--muted); line-height:1.5; }
+  .mini-stats { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:16px 18px; display:flex; flex-direction:column; justify-content:space-between; box-shadow:var(--sh); }
+  .ms { display:flex; align-items:center; justify-content:space-between; }
+  .ms-l { font-size:11px; color:var(--muted); }
+  .ms-v { font-family:var(--mono); font-size:12px; color:var(--text); font-weight:500; }
+  .mbar { height:3px; border-radius:2px; background:var(--border); margin-top:5px; overflow:hidden; }
+  .mbar-f { height:100%; border-radius:2px; transition:width 0.6s cubic-bezier(.4,0,.2,1); }
+
+  /* ── Sections ── */
+  .sec { margin-bottom:18px; }
+  .sec-hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .sec-ttl { font-family:var(--mono); font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--muted); }
+  .divider { height:1px; background:var(--border); margin:18px 0; }
+  .empty { text-align:center; padding:22px; color:var(--muted); font-size:12px; background:var(--surface); border:1.5px dashed var(--border2); border-radius:var(--rs); }
+
+  /* ── Habits ── */
+  .hab-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  @media(max-width:520px){ .hab-grid { grid-template-columns:repeat(2,1fr); } }
+  .hab-card { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--rs); padding:12px; cursor:pointer; transition:all 0.15s; user-select:none; position:relative; overflow:hidden; box-shadow:var(--sh); }
+  .hab-card:hover { border-color:var(--border2); transform:translateY(-1px); box-shadow:var(--sh2); }
+  .hab-card.done { border-color:rgba(14,168,116,0.4); background:linear-gradient(135deg,#fff 60%,var(--teal-lt)); }
+  .hab-card.done::after { content:'✓'; position:absolute; top:6px; right:8px; font-size:10px; font-weight:600; color:var(--teal); font-family:var(--mono); }
+  .hab-ico { font-size:18px; margin-bottom:7px; }
+  .hab-nm  { font-size:11px; font-weight:500; color:var(--text); line-height:1.3; }
+  .hab-str { font-family:var(--mono); font-size:10px; color:var(--muted2); margin-top:4px; }
+  .hab-card.done .hab-str { color:var(--teal); }
+
+  /* ── Pomodoros ── */
+  .pom-row { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--rs); padding:14px 16px; box-shadow:var(--sh); }
+  .pom-dots { display:flex; gap:6px; flex:1; flex-wrap:wrap; }
+  .pom-sq { width:20px; height:20px; border-radius:5px; border:1.5px solid var(--border2); cursor:pointer; transition:all 0.12s; background:var(--surface2); }
+  .pom-sq.done { background:var(--violet); border-color:var(--violet); }
+  .pom-sq:hover:not(.done) { border-color:var(--violet); background:var(--violet-lt); }
+  .pom-ct { font-family:var(--mono); font-size:13px; font-weight:500; color:var(--text); white-space:nowrap; }
+
+  /* ── MITs ── */
+  .mit-list { display:flex; flex-direction:column; gap:6px; }
+  .mit-it { display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--rs); padding:10px 12px; transition:all 0.15s; box-shadow:var(--sh); }
+  .mit-it.done { opacity:0.45; }
+  .mit-it.done .mit-ttl { text-decoration:line-through; color:var(--muted); }
+  .mit-chk { width:17px; height:17px; border-radius:5px; border:1.5px solid var(--border2); flex-shrink:0; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.15s; background:var(--surface2); }
+  .mit-chk:hover { border-color:var(--teal); }
+  .mit-it.done .mit-chk { background:var(--teal); border-color:var(--teal); }
+  .mit-chk svg { opacity:0; transition:opacity 0.12s; }
+  .mit-it.done .mit-chk svg { opacity:1; }
+  .mit-body { flex:1; min-width:0; }
+  .mit-ttl { font-size:13px; font-weight:500; color:var(--text); line-height:1.3; }
+  .mit-meta { display:flex; align-items:center; gap:6px; margin-top:3px; }
+  .del-btn { color:var(--muted2); font-size:18px; line-height:1; cursor:pointer; padding:0 2px; transition:color 0.12s; border:none; background:none; }
+  .del-btn:hover { color:var(--coral); }
+  .tb { display:inline-block; padding:2px 7px; border-radius:4px; font-size:9px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; }
+  .tb-health    { background:var(--teal-lt);   color:var(--teal);   }
+  .tb-financial { background:var(--blue-lt);   color:var(--blue);   }
+  .tb-house     { background:var(--amber-lt);  color:var(--amber);  }
+  .tb-job       { background:var(--violet-lt); color:var(--violet); }
+  .tb-pt2       { background:var(--coral-lt);  color:var(--coral);  }
+  .tb-tech      { background:var(--slate-lt);  color:var(--slate);  }
+  .add-mit { display:flex; gap:8px; margin-top:10px; }
+  .add-mit input { flex:1; background:var(--surface); border:1.5px solid var(--border); border-radius:var(--rs); padding:9px 12px; font-size:13px; font-family:var(--sans); color:var(--text); outline:none; transition:border-color 0.15s; box-shadow:var(--sh); }
+  .add-mit input:focus { border-color:var(--violet); }
+  .add-mit input::placeholder { color:var(--muted2); }
+  .add-mit select { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--rs); padding:9px 10px; font-size:12px; font-family:var(--sans); color:var(--text); outline:none; cursor:pointer; box-shadow:var(--sh); }
+  .add-mit button { background:var(--violet); border:none; border-radius:var(--rs); padding:9px 16px; font-size:13px; font-weight:500; color:white; cursor:pointer; font-family:var(--sans); transition:opacity 0.15s; white-space:nowrap; }
+  .add-mit button:hover { opacity:0.85; }
+
+  /* ── Alerts ── */
+  .alrt { background:var(--coral-lt); border:1px solid rgba(224,82,82,0.2); border-radius:var(--rs); padding:10px 14px; display:flex; align-items:flex-start; gap:10px; margin-bottom:6px; }
+  .alrt-pip { width:6px; height:6px; border-radius:50%; background:var(--coral); flex-shrink:0; margin-top:4px; }
+  .alrt-txt { font-size:12px; color:#b83a3a; line-height:1.5; }
+  .alrt-lvl { font-family:var(--mono); font-size:9px; color:#c44; opacity:0.8; margin-top:2px; }
+
+  /* ── Sleep ── */
+  .sleep-bar { background:var(--violet-lt); border:1px solid rgba(107,92,231,0.2); border-radius:var(--rs); padding:11px 16px; display:flex; align-items:center; justify-content:space-between; margin-top:4px; }
+  .sleep-txt { font-size:12px; color:#5a4ec0; }
+  .sleep-t   { font-family:var(--mono); font-size:12px; color:var(--violet); font-weight:500; }
+
+  /* ── Modal ── */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.35); z-index:200; align-items:center; justify-content:center; backdrop-filter:blur(2px); }
+  .overlay.open { display:flex; }
+  .modal { background:var(--surface); border:1px solid var(--border2); border-radius:16px; padding:24px; width:340px; max-height:85vh; overflow-y:auto; box-shadow:var(--sh2); }
+  .modal-hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .modal-ttl { font-size:15px; font-weight:600; }
+  .modal-x { border:none; background:none; cursor:pointer; font-size:18px; color:var(--muted); }
+  .modal-x:hover { color:var(--text); }
+  .fld { margin-bottom:14px; }
+  .fld label { display:block; font-size:10px; font-family:var(--mono); text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:5px; }
+  .fld input,.fld select { width:100%; background:var(--surface2); border:1.5px solid var(--border); border-radius:var(--rs); padding:9px 11px; font-size:13px; font-family:var(--sans); color:var(--text); outline:none; transition:border-color 0.15s; }
+  .fld input:focus,.fld select:focus { border-color:var(--violet); }
+  .mbtn { width:100%; border:none; border-radius:var(--rs); padding:11px; font-size:13px; font-weight:500; cursor:pointer; font-family:var(--sans); margin-top:4px; transition:opacity 0.15s; }
+  .mbtn:hover { opacity:0.85; }
+  .mbtn.pri { background:var(--violet); color:white; }
+  .mbtn.dan { background:var(--coral-lt); color:var(--coral); border:1px solid rgba(224,82,82,0.25); margin-top:10px; }
+
+  /* ── Toast ── */
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:#1a1a1f; color:white; padding:10px 18px; border-radius:20px; font-size:12px; font-family:var(--mono); opacity:0; transition:all 0.3s; z-index:999; white-space:nowrap; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- Setup banner -->
+  <div class="setup-banner" id="setup-banner">
+    <h2>⚡ One-time setup — syncs Chrome across iPhone, iPad, and desktop</h2>
+    <ol class="setup-steps">
+      <li>Go to <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a> and sign in</li>
+      <li>Name it <code>daily-command-center</code> · set expiration to <code>No expiration</code></li>
+      <li>Under <strong>Scopes</strong>, check <code>gist</code> only — nothing else needed</li>
+      <li>Click <strong>Generate token</strong> and copy it immediately (only shown once)</li>
+      <li>Open <a href="https://gist.github.com" target="_blank">gist.github.com</a> → New gist · filename: <code>dcc-data.json</code> · content: <code>{}</code> · Create <strong>secret</strong> gist</li>
+      <li>Copy the Gist ID from the URL — it's the long hex string after your username</li>
+      <li>Paste both below, click Connect, then bookmark this file on every device</li>
+    </ol>
+    <div class="setup-form">
+      <input type="password" id="tok" placeholder="GitHub token  (ghp_...)"/>
+      <input type="text"     id="gid" placeholder="Gist ID  (32-char hex)"/>
+      <button onclick="connect()">Connect →</button>
+    </div>
+  </div>
+
+  <!-- Sync bar (post-setup) -->
+  <div class="sync-bar" id="sync-bar" style="display:none;">
+    <div class="sync-ind">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-lbl">—</span>
+    </div>
+    <div class="sync-actions">
+      <button class="lnk" onclick="syncNow()">↻ Sync</button>
+      <button class="lnk m" onclick="openCfg()">⚙ Configure</button>
+      <button class="lnk m" onclick="disconnect()">✕ Disconnect</button>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="hdr">
+    <div>
+      <div class="day-lbl" id="day-lbl">—</div>
+      <div class="day-ttl" id="day-ttl">—</div>
+    </div>
+    <div class="hdr-r">
+      <div class="wpill w-y" id="wpill" onclick="openCfg()"><span class="wdot"></span><span id="wlbl">Yellow · Moderate</span></div>
+      <button class="cfg-btn" onclick="openCfg()">⚙ Configure</button>
+    </div>
+  </div>
+
+  <!-- Score row -->
+  <div class="score-row">
+    <div class="score-card">
+      <div class="ring-wrap">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <circle cx="36" cy="36" r="29" fill="none" stroke="#ebebeb" stroke-width="6"/>
+          <circle cx="36" cy="36" r="29" fill="none" stroke="#0ea874" stroke-width="6"
+            stroke-linecap="round" stroke-dasharray="182.2" id="score-ring"
+            stroke-dashoffset="182.2" style="transition:stroke-dashoffset 1s cubic-bezier(.4,0,.2,1),stroke 0.5s;"/>
+        </svg>
+        <div class="ring-ctr">
+          <div class="ring-n" id="score-n">0</div>
+          <div class="ring-u">score</div>
+        </div>
+      </div>
+      <div>
+        <div class="sc-ttl" id="sc-ttl">Just getting started</div>
+        <div class="sc-sub" id="sc-sub">Check off habits and complete tasks</div>
+      </div>
+    </div>
+    <div class="mini-stats">
+      <div>
+        <div class="ms"><span class="ms-l">Pomodoros</span><span class="ms-v" id="pom-stat">0/4</span></div>
+        <div class="mbar"><div class="mbar-f" id="pom-bar" style="width:0%;background:var(--violet);"></div></div>
+      </div>
+      <div>
+        <div class="ms"><span class="ms-l">Habits</span><span class="ms-v" id="hab-stat">0/6</span></div>
+        <div class="mbar"><div class="mbar-f" id="hab-bar" style="width:0%;background:var(--teal);"></div></div>
+      </div>
+      <div>
+        <div class="ms"><span class="ms-l">MITs done</span><span class="ms-v" id="mit-stat">0/0</span></div>
+        <div class="mbar"><div class="mbar-f" id="mit-bar" style="width:0%;background:var(--amber);"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Habits -->
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-ttl">Habit Tracker</div>
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted2);" id="hab-lbl">tap to check off</span>
+    </div>
+    <div class="hab-grid" id="hab-grid"></div>
+  </div>
+  <div class="divider"></div>
+
+  <!-- Pomodoros -->
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-ttl">Pomodoros</div>
+      <div style="display:flex;gap:10px;">
+        <button class="lnk" onclick="addPom()">+1 done</button>
+        <button class="lnk m" onclick="remPom()">undo</button>
+      </div>
+    </div>
+    <div class="pom-row">
+      <div class="pom-dots" id="pom-dots"></div>
+      <div class="pom-ct" id="pom-ct">0/4</div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <!-- MITs -->
+  <div class="sec">
+    <div class="sec-hd">
+      <div class="sec-ttl">MITs — Most Important Tasks</div>
+      <button class="lnk m" onclick="clearDone()">clear done</button>
+    </div>
+    <div class="mit-list" id="mit-list"></div>
+    <div class="add-mit">
+      <input type="text" id="mit-inp" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addMit()"/>
+      <select id="mit-trk">
+        <option value="health">Health</option>
+        <option value="financial">Financial</option>
+        <option value="house">House</option>
+        <option value="job">Job Search</option>
+        <option value="pt2">PT2.AI</option>
+        <option value="tech">Technical</option>
+      </select>
+      <button onclick="addMit()">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  <div id="alrt-sec" style="display:none;">
+    <div class="divider"></div>
+    <div class="sec">
+      <div class="sec-hd"><div class="sec-ttl">⚠ Stale Task Alerts</div></div>
+      <div id="alrt-list"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="sleep-bar">
+    <span class="sleep-txt">🌙 Wind-down target</span>
+    <span class="sleep-t">9:00 PM → In bed 10:00 PM</span>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="overlay" id="modal">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-ttl">Configure Day</div>
+      <button class="modal-x" onclick="closeCfg()">✕</button>
+    </div>
+    <div class="fld">
+      <label>WHOOP Recovery</label>
+      <select id="cfg-w">
+        <option value="green">Green — Good</option>
+        <option value="yellow" selected>Yellow — Moderate</option>
+        <option value="red">Red — Low energy</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Day Type</label>
+      <select id="cfg-d">
+        <option value="nonrehab">Non-rehab (6–8 poms)</option>
+        <option value="rehab">Rehab day (5–6 poms)</option>
+        <option value="sunday" selected>Sunday (3–5 poms)</option>
+        <option value="low">Low energy (3–4 poms)</option>
+      </select>
+    </div>
+    <div class="fld">
+      <label>Pomodoro Override (optional)</label>
+      <input type="number" id="cfg-p" min="1" max="12" placeholder="Leave blank for auto"/>
+    </div>
+    <button class="mbtn pri" onclick="saveCfg()">Save & Apply</button>
+    <button class="mbtn dan" onclick="resetDay()">Reset Today's Data</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Config ─────────────────────────────────────────────
+const HABITS = [
+  {id:'sleep',    icon:'🌙', name:'Sleep / Recovery'},
+  {id:'exercise', icon:'❤️', name:'Exercise / Rehab'},
+  {id:'reading',  icon:'📖', name:'Reading'},
+  {id:'nutrition',icon:'🥗', name:'Nutrition'},
+  {id:'financial',icon:'💰', name:'Financial task'},
+  {id:'spiritual',icon:'🧘', name:'Spiritual'},
+];
+const TRK = {health:'Health',financial:'Financial',house:'House',job:'Job Search',pt2:'PT2.AI',tech:'Technical'};
+const POM_T = {nonrehab:6,rehab:5,sunday:4,low:3};
+const LS_S = 'dcc_s2', LS_C = 'dcc_c1';
+
+// ── State ──────────────────────────────────────────────
+let creds = null, syncTmr = null;
+
+let S = {
+  date:todayStr(), whoop:'yellow', dayType:'sunday',
+  pomTarget:4, pomDone:0, habits:{}, streaks:{}, mits:[]
+};
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function toast(msg,dur=2500){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),dur);
+}
+
+// ── Local storage ──────────────────────────────────────
+function saveLocal(){ try{ localStorage.setItem(LS_S,JSON.stringify(S)); }catch(e){} }
+
+function loadLocal(){
+  try{
+    const raw=localStorage.getItem(LS_S);
+    if(!raw) return;
+    const sv=JSON.parse(raw);
+    if(sv.date===todayStr()){
+      S={...S,...sv};
+    } else {
+      S.streaks  = sv.streaks||{};
+      S.pomDone  = 0; S.habits={};
+      S.mits     = (sv.mits||[]).filter(m=>!m.done);
+      S.date     = todayStr();
+      S.whoop    = sv.whoop||'yellow';
+      S.dayType  = sv.dayType||'sunday';
+      S.pomTarget= POM_T[S.dayType]||4;
+    }
+  }catch(e){}
+}
+
+// ── Gist sync ──────────────────────────────────────────
+function setSyncUI(cls,lbl){
+  document.getElementById('sync-dot').className='sync-dot '+cls;
+  document.getElementById('sync-lbl').textContent=lbl;
+}
+
+async function gistRead(){
+  if(!creds) return null;
+  try{
+    const r=await fetch(`https://api.github.com/gists/${creds.gistId}`,{
+      headers:{Authorization:`token ${creds.token}`,Accept:'application/vnd.github.v3+json'}
+    });
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    const c=d.files?.['dcc-data.json']?.content;
+    if(!c||c.trim()==='{}') return null;
+    return JSON.parse(c);
+  }catch(e){ console.warn(e); return null; }
+}
+
+async function gistWrite(payload){
+  if(!creds) return false;
+  try{
+    const r=await fetch(`https://api.github.com/gists/${creds.gistId}`,{
+      method:'PATCH',
+      headers:{Authorization:`token ${creds.token}`,Accept:'application/vnd.github.v3+json','Content-Type':'application/json'},
+      body:JSON.stringify({files:{'dcc-data.json':{content:JSON.stringify(payload,null,2)}}})
+    });
+    return r.ok;
+  }catch(e){ console.warn(e); return false; }
+}
+
+function merge(local,remote){
+  if(!remote) return local;
+  if(local.date===remote.date){
+    const m={...local};
+    m.pomDone=Math.max(local.pomDone||0,remote.pomDone||0);
+    const hIds=new Set([...Object.keys(local.habits||{}),...Object.keys(remote.habits||{})]);
+    m.habits={};
+    hIds.forEach(id=>{ m.habits[id]=!!(local.habits?.[id]||remote.habits?.[id]); });
+    const sIds=new Set([...Object.keys(local.streaks||{}),...Object.keys(remote.streaks||{})]);
+    m.streaks={};
+    sIds.forEach(id=>{ m.streaks[id]=Math.max(local.streaks?.[id]||0,remote.streaks?.[id]||0); });
+    const mm={};
+    [...(remote.mits||[]),...(local.mits||[])].forEach(mit=>{
+      const k=mit.title+'|'+mit.track;
+      if(!mm[k]||mit.done) mm[k]=mit;
+    });
+    m.mits=Object.values(mm);
+    return m;
+  }
+  return local.date>=remote.date?local:remote;
+}
+
+async function syncNow(){
+  if(!creds) return;
+  setSyncUI('working','Syncing…');
+  try{
+    const remote=await gistRead();
+    S=merge(S,remote);
+    saveLocal();
+    const ok=await gistWrite(S);
+    if(ok){
+      const t=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      setSyncUI('ok','Synced '+t);
+      toast('✓ Synced');
+    } else {
+      setSyncUI('err','Write failed');
+      toast('Sync failed — check token permissions');
+    }
+  }catch(e){
+    setSyncUI('err','Error');
+    toast('Sync error: '+e.message);
+  }
+  render();
+}
+
+function schedSync(){
+  saveLocal();
+  if(!creds) return;
+  clearTimeout(syncTmr);
+  syncTmr=setTimeout(()=>syncNow(),1500);
+  setSyncUI('working','Saving…');
+}
+
+// ── Connection ─────────────────────────────────────────
+async function connect(){
+  const token=document.getElementById('tok').value.trim();
+  const gistId=document.getElementById('gid').value.trim();
+  if(!token||!gistId){ toast('Both fields are required'); return; }
+  creds={token,gistId};
+  localStorage.setItem(LS_C,JSON.stringify(creds));
+  setSyncUI('working','Connecting…');
+  const remote=await gistRead();
+  if(remote){ S=merge(S,remote); saveLocal(); }
+  else { await gistWrite(S); }
+  showApp(); setSyncUI('ok','Connected'); toast('✓ Connected — syncs automatically'); render();
+}
+
+function disconnect(){
+  if(!confirm('Disconnect sync? Local data stays intact.')) return;
+  creds=null; localStorage.removeItem(LS_C);
+  document.getElementById('sync-bar').style.display='none';
+  document.getElementById('setup-banner').style.display='block';
+  toast('Disconnected');
+}
+
+function showApp(){
+  document.getElementById('setup-banner').style.display='none';
+  document.getElementById('sync-bar').style.display='flex';
+}
+
+// ── Render ─────────────────────────────────────────────
+function render(){ renderHdr(); renderWhoop(); renderHabits(); renderPoms(); renderMits(); renderScore(); renderAlerts(); }
+
+function renderHdr(){
+  const d=new Date();
+  const DY=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('day-lbl').textContent=DY[d.getDay()];
+  document.getElementById('day-ttl').textContent=MO[d.getMonth()]+' '+d.getDate()+', '+d.getFullYear();
+}
+
+function renderWhoop(){
+  const pill=document.getElementById('wpill'), lbl=document.getElementById('wlbl');
+  const M={green:['w-g','Green · Good'],yellow:['w-y','Yellow · Moderate'],red:['w-r','Red · Low energy']};
+  const [c,t]=M[S.whoop]||M.yellow;
+  pill.className='wpill '+c; lbl.textContent=t;
+}
+
+function renderHabits(){
+  const g=document.getElementById('hab-grid');
+  g.innerHTML=''; let done=0;
+  HABITS.forEach(h=>{
+    const chk=!!S.habits[h.id]; if(chk) done++;
+    const str=S.streaks[h.id]||0;
+    const c=document.createElement('div');
+    c.className='hab-card'+(chk?' done':'');
+    c.innerHTML=`<div class="hab-ico">${h.icon}</div><div class="hab-nm">${h.name}</div><div class="hab-str">${str>0?str+' day streak':'no streak yet'}</div>`;
+    c.onclick=()=>togHabit(h.id);
+    g.appendChild(c);
+  });
+  const tot=HABITS.length;
+  document.getElementById('hab-stat').textContent=done+'/'+tot;
+  document.getElementById('hab-bar').style.width=(done/tot*100)+'%';
+  document.getElementById('hab-lbl').textContent=done+'/'+tot+' done';
+}
+
+function togHabit(id){
+  if(S.habits[id]){ S.habits[id]=false; S.streaks[id]=Math.max(0,(S.streaks[id]||0)-1); }
+  else { S.habits[id]=true; S.streaks[id]=(S.streaks[id]||0)+1; }
+  schedSync(); render();
+}
+
+function renderPoms(){
+  const {pomDone:done,pomTarget:target}=S;
+  const w=document.getElementById('pom-dots'); w.innerHTML='';
+  for(let i=0;i<target;i++){
+    const sq=document.createElement('div');
+    sq.className='pom-sq'+(i<done?' done':'');
+    sq.onclick=()=>{ S.pomDone=(i<done)?i:i+1; schedSync(); render(); };
+    w.appendChild(sq);
+  }
+  document.getElementById('pom-ct').textContent=done+'/'+target;
+  document.getElementById('pom-stat').textContent=done+'/'+target;
+  document.getElementById('pom-bar').style.width=Math.min(100,done/target*100)+'%';
+}
+
+function addPom(){ if(S.pomDone<S.pomTarget){ S.pomDone++; schedSync(); render(); } }
+function remPom(){ if(S.pomDone>0){ S.pomDone--; schedSync(); render(); } }
+
+function renderMits(){
+  const list=document.getElementById('mit-list'); list.innerHTML='';
+  if(!S.mits.length){
+    list.innerHTML='<div class="empty">No tasks yet — add your most important tasks for today</div>';
+    document.getElementById('mit-stat').textContent='0/0';
+    document.getElementById('mit-bar').style.width='0%'; return;
+  }
+  S.mits.forEach((m,i)=>{
+    const el=document.createElement('div');
+    el.className='mit-it'+(m.done?' done':'');
+    el.innerHTML=`
+      <div class="mit-chk"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="mit-body"><div class="mit-ttl">${esc(m.title)}</div><div class="mit-meta"><span class="tb tb-${m.track}">${TRK[m.track]||m.track}</span></div></div>
+      <button class="del-btn">×</button>`;
+    el.querySelector('.mit-chk').onclick=()=>togMit(i);
+    el.querySelector('.mit-ttl').onclick=()=>togMit(i);
+    el.querySelector('.del-btn').onclick=(e)=>{ e.stopPropagation(); delMit(i); };
+    list.appendChild(el);
+  });
+  const done=S.mits.filter(m=>m.done).length, tot=S.mits.length;
+  document.getElementById('mit-stat').textContent=done+'/'+tot;
+  document.getElementById('mit-bar').style.width=(tot?(done/tot*100):0)+'%';
+}
+
+function addMit(){
+  const inp=document.getElementById('mit-inp'), trk=document.getElementById('mit-trk').value;
+  const title=inp.value.trim(); if(!title) return;
+  S.mits.push({title,track:trk,done:false,addedDate:todayStr()});
+  inp.value=''; schedSync(); render();
+}
+function togMit(i){ S.mits[i].done=!S.mits[i].done; schedSync(); render(); }
+function delMit(i){ S.mits.splice(i,1); schedSync(); render(); }
+function clearDone(){ S.mits=S.mits.filter(m=>!m.done); schedSync(); render(); }
+
+function renderScore(){
+  const hd=Object.values(S.habits).filter(Boolean).length;
+  const ps=(Math.min(S.pomDone,S.pomTarget)/S.pomTarget)*35;
+  const md=S.mits.filter(m=>m.done).length, mt=S.mits.length;
+  const score=Math.round((hd/HABITS.length)*40+ps+(mt>0?(md/mt)*25:0));
+  document.getElementById('score-n').textContent=score;
+  const circ=2*Math.PI*29, ring=document.getElementById('score-ring');
+  ring.setAttribute('stroke-dashoffset',circ-(score/100)*circ);
+  ring.style.stroke=score<35?'var(--coral)':score<65?'var(--amber)':'var(--teal)';
+  const [t,s]=score<20?['Just getting started','Add MITs and check off habits']:
+    score<40?['Warming up','Keep the momentum']:
+    score<60?['Solid progress',"You're building something today"]:
+    score<80?['Strong day','Most habits locked in']:
+    ['Elite execution','Full commitment — well done'];
+  document.getElementById('sc-ttl').textContent=t;
+  document.getElementById('sc-sub').textContent=s;
+}
+
+function renderAlerts(){
+  const now=new Date();
+  const stale=S.mits.filter(m=>{ if(m.done||!m.addedDate) return false; return Math.floor((now-new Date(m.addedDate))/86400000)>=2; });
+  const sec=document.getElementById('alrt-sec');
+  if(!stale.length){ sec.style.display='none'; return; }
+  sec.style.display='block';
+  const list=document.getElementById('alrt-list'); list.innerHTML='';
+  stale.forEach(m=>{
+    const days=Math.floor((now-new Date(m.addedDate))/86400000);
+    const lv=days>=5?3:days>=3?2:1;
+    const lb=['Curious','Firm','Blunt'][lv-1];
+    const el=document.createElement('div'); el.className='alrt';
+    el.innerHTML=`<div class="alrt-pip"></div><div><div class="alrt-txt">"${esc(m.title)}" — deferred ${days} day${days>1?'s':''}</div><div class="alrt-lvl">Level ${lv} · ${lb} — commit or drop it</div></div>`;
+    list.appendChild(el);
+  });
+}
+
+// ── Settings ───────────────────────────────────────────
+function openCfg(){
+  document.getElementById('cfg-w').value=S.whoop;
+  document.getElementById('cfg-d').value=S.dayType;
+  document.getElementById('cfg-p').value='';
+  document.getElementById('modal').classList.add('open');
+}
+function closeCfg(){ document.getElementById('modal').classList.remove('open'); }
+function saveCfg(){
+  S.whoop=document.getElementById('cfg-w').value;
+  S.dayType=document.getElementById('cfg-d').value;
+  const ov=parseInt(document.getElementById('cfg-p').value);
+  S.pomTarget=isNaN(ov)?(POM_T[S.dayType]||4):ov;
+  closeCfg(); schedSync(); render();
+}
+function resetDay(){
+  if(!confirm('Reset today\'s habits, pomodoros, and tasks?')) return;
+  S.pomDone=0; S.habits={}; S.mits=[];
+  closeCfg(); schedSync(); render();
+}
+
+// ── Boot ───────────────────────────────────────────────
+(async function init(){
+  loadLocal(); render();
+  try{
+    const raw=localStorage.getItem(LS_C);
+    if(raw){ creds=JSON.parse(raw); showApp(); setSyncUI('working','Loading…'); await syncNow(); }
+  }catch(e){}
+  setInterval(()=>{ if(document.visibilityState==='visible'&&creds) syncNow(); },60000);
+})();
+</script>
+</body>
+</html>
